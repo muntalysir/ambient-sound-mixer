@@ -61,6 +61,13 @@ class AmbientMixer {
         this.setMasterVolume(volume);
       });
     }
+
+    // Handle master play/pause button
+    if (this.ui.playPauseButton) {
+      this.ui.playPauseButton.addEventListener('click', () => {
+        this.toggleAllSounds();
+      });
+    }
   }
 
   // Load all sound files
@@ -104,6 +111,54 @@ class AmbientMixer {
       this.soundManager.pauseSound(soundId);
       this.ui.updateSoundPlayButton(soundId, false);
     }
+
+    // Update main play button state
+    this.updateMainPlayButtonState();
+  }
+
+  // Toggle all sounds
+  toggleAllSounds() {
+    if (this.soundManager.isPlaying) {
+      // Toggle sound off
+      // 1. Stop the audio
+      this.soundManager.pauseAll();
+
+      // 2. Update the BIG master button icon to "Play"
+      this.ui.updateMainPlayButton(false);
+
+      // 3. Update EVERY individual card icon back to "Play"
+      // Use the correct UI method here:
+      sounds.forEach((sound) => {
+        this.ui.updateSoundPlayButton(sound.id, false);
+      });
+    } else {
+      // Toggle sound on
+      for (const [soundId, audio] of this.soundManager.audioElements) {
+        const card = document.querySelector(`[data-sound="${soundId}"]`);
+        const slider = card?.querySelector('.volume-slider');
+
+        if (slider) {
+          let volume = parseInt(slider.value);
+
+          if (volume === 0) {
+            volume = 50;
+            slider.value = 50;
+            this.ui.updateVolumeDisplay(soundId, 50);
+          }
+
+          this.currentSoundState[soundId] = volume;
+
+          const effectiveVolume = (volume * this.masterVolume) / 100;
+          audio.volume = effectiveVolume / 100;
+          this.ui.updateSoundPlayButton(soundId, true);
+        }
+      }
+
+      // Play all sounds
+      this.soundManager.playAll();
+
+      this.ui.updateMainPlayButton(true);
+    }
   }
 
   //Set sound volume
@@ -123,6 +178,9 @@ class AmbientMixer {
 
     // Update visual display
     this.ui.updateVolumeDisplay(soundId, volume);
+
+    // Sync sounds
+    this.updateMainPlayButtonState();
   }
 
   // Set Master Volume
@@ -156,6 +214,22 @@ class AmbientMixer {
         }
       }
     }
+  }
+
+  // Update main play button based on individual sounds
+  updateMainPlayButtonState() {
+    // Check if any sounds playing
+    let anySoundsPlaying = false;
+    for (const [soundId, audio] of this.soundManager.audioElements) {
+      if (!audio.paused) {
+        anySoundsPlaying = true;
+        break;
+      }
+    }
+
+    // Update the main button and the internal state
+    this.soundManager.isPlaying = anySoundsPlaying;
+    this.ui.updateMainPlayButton(anySoundsPlaying);
   }
 }
 
